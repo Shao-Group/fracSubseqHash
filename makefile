@@ -17,10 +17,10 @@ product: $(ALLDEP) $(patsubst %.cpp,%.out,$(filter-out $(patsubst %.o,%.cpp,$(AL
 sampleFast%.out: sampleFast%.cpp
 	$(CPP) $(CFLAGS) -std=c++17 -o $@ $^ $(LIBS)
 genSubseqSeed%.out: genSubseqSeed%.cpp $(ALLDEP)
-	$(CPP) $(CFLAGS) -o $@ $^ $(LIBS) -pthread
+	$(CPP) $(CFLAGS) -o $@ $(filter %.o %.cpp, $^) $(LIBS) -pthread
 
 %.out: %.cpp $(ALLDEP)
-	$(CPP) $(CFLAGS) -o $@ $(filter-out $(wildcard *.tpp), $^) $(LIBS)
+	$(CPP) $(CFLAGS) -o $@ $(filter %.o %.cpp, $^) $(LIBS)
 %.out: %.c $(ALLDEP)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 %.o: %.cpp %.h makefile
