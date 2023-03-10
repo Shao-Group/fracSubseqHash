@@ -24,6 +24,14 @@
 */
 typedef __uint128_t kmer;
 
+struct Seed{
+    kmer v;
+    unsigned int pos;
+    //number of consecutive windows that all produce this seed
+    unsigned int span;
+    Seed(const kmer v, const unsigned int pos): v(v), pos(pos), span(1) {};
+};
+
 
 #define ALPHABETSIZE 4
 const char ALPHABET[ALPHABETSIZE] = {'A', 'C', 'G', 'T'};
@@ -133,24 +141,32 @@ bool backtrackDPTableWithPos(const char* s, const int n, const int k,
 
 /*
   Given a char-representation of a read and a set of random tables, 
-  calculate and store its minSubseq seeds and their starting indices in a map.
-  Only seeds whose scores are at least the given threshold
-  are generated/stored.
+  calculate and store its minSubseq seeds and their starting positions in a
+  vector sorted by the positions:
+  - only the first one is kept if consecutive windows produce the same seed
+    (in the current implementation, "consecutive" is understood to not
+    consider windows that do not produce a seed);
+  - if a seed appears multiple times in different (non-consecutive) locations,
+    it will also be stored multiple times in the vector. 
+  Only seeds whose scores are at least the given threshold are generated/stored.
 */
 void getSubseqSeedsThreshold(const std::string &read,
 			     const int n, const int k,
 			     const RandTableCell* tp, const double threshold,
-			     std::map<kmer, std::vector<int> > &seeds_tree);
+			     std::vector<Seed>& seeds_list);
 
 /*
-  Save seeds of a read to file, the map structure is discarded.
-  The seeds are saved in ascending order of their encoding, the starting
-  indices of a seed in the read is also stored.
+  Save seeds of a read to file.
+  The seeds are saved in ascending order with respect to their starting
+  positions in the read. A seed can appear multiple times if it is selected
+  from different (non-consecutive) positions in the read.
+  Each seed is stored in binary format by fwrite, and can be read by fread.
 */
 void saveSubseqSeeds(const char* filename,
-		     const std::map<kmer, std::vector<int> > seeds_tree);
+		     const std::vector<Seed>& seeds_list);
 
 /*
+  ***DEPRECATED***
   Read seeds of a read from file, merge them into a map where the seed
   is key and value is a vector of read ids.
   The seed location info is currently unused.

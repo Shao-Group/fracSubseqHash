@@ -53,9 +53,10 @@ public:
     void removeUniqSeeds();
 
     /*
-      Save the graph to the given filename.
+      Graph IO with the given filename.
     */
     void saveGraph(const char* filename);
+    void loadGraph(const char* filename);
 };
 
 
@@ -231,6 +232,11 @@ void SeedsGraph<T>::removeUniqSeeds(){
 */
 template<class T>
 void SeedsGraph<T>::saveGraph(const char* filename){
+    //TODO
+}
+
+template<class T>
+void SeedsGraph<T>::loadGraph(const char* filename){
     //TODO
 }
 

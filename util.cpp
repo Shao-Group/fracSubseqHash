@@ -267,12 +267,17 @@ bool backtrackDPTableWithPos(const char* s, const int n, const int k,
     return (q == 0);
 }
 
-static inline void storeSeedWithPosInTree(const kmer seed, const int pos,
-					  std::map<kmer, std::vector<int> > &seeds_tree){
-    auto result = seeds_tree.insert(std::pair<kmer, std::vector<int> >(seed, std::vector<int>(1, pos)));
-    if(!result.second){
-	result.first->second.push_back(pos);
+static inline void storeSeedWithPosInVector(const kmer seed, const unsigned int pos,
+					    std::vector<Seed>& seeds_list){
+    //skip the same seed from consecutive positions
+    if(seeds_list.size() > 0){
+	Seed& s = seeds_list.back();
+	if(s.v == seed){
+	    ++ s.span;
+	    return;
+	}
     }
+    seeds_list.emplace_back(seed, pos);
 }
 
 static inline double getScoreFromDPTable(const int n, const int k,
@@ -286,9 +291,9 @@ static inline double getScoreFromDPTable(const int n, const int k,
 void getSubseqSeedsThreshold(const std::string &read,
 			     const int n, const int k,
 			     const RandTableCell* tp, const double threshold,
-			     std::map<kmer, std::vector<int> > &seeds_tree){
-    int len = read.length();
-    int i;
+			     std::vector<Seed>& seeds_list){
+    size_t len = read.length();
+    unsigned int i;
     char cur[n+1];
     kmer seed;
     double score = threshold;
@@ -306,14 +311,14 @@ void getSubseqSeedsThreshold(const std::string &read,
 	score = getScoreFromDPTable(n, k, dp);
 	if(score >= threshold){
 	    backtrackDPTable(cur, n, k, dp, &seed);
-	    storeSeedWithPosInTree(seed, i, seeds_tree);
+	    storeSeedWithPosInVector(seed, i, seeds_list);
 	}
 
 	score = getScoreFromDPTable(n+1, k, dp);
 	if(score >= threshold){
 	    if(!backtrackDPTable(cur, n+1, k, dp, &seed)){//first char not used
 		++i; //skip recalculation of next position
-		storeSeedWithPosInTree(seed, i, seeds_tree);
+		storeSeedWithPosInVector(seed, i, seeds_list);
 	    }
 	}else{//score less than threshold even with extra column, actual score can only be lower
 	    ++i;
@@ -329,20 +334,16 @@ void getSubseqSeedsThreshold(const std::string &read,
 	score = getScoreFromDPTable(n, k, dp);
 	if(score >= threshold){
 	    backtrackDPTable(cur, n, k, dp, &seed);
-	    storeSeedWithPosInTree(seed, i, seeds_tree);
+	    storeSeedWithPosInVector(seed, i, seeds_list);
 	}
     }
 }
 
 void saveSubseqSeeds(const char* filename,
-		     const std::map<kmer, std::vector<int> > seeds_tree){
+		     const std::vector<Seed>& seeds_list){
     FILE* fout = fopen(filename, "wb");
-    int size;
-    for(std::pair<kmer, std::vector<int> > seed : seeds_tree){
-	fwrite(&(seed.first), sizeof(kmer), 1, fout);
-	size = seed.second.size();
-	fwrite(&size, sizeof(int), 1, fout);
-	fwrite(seed.second.data(), sizeof(int), size, fout);
+    for(const Seed& s : seeds_list){
+	fwrite(&s, sizeof(s), 1, fout);
     }
     fclose(fout);
 }
