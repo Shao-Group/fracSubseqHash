@@ -11,7 +11,7 @@
 
 #include <map>
 #include <string>
-#include <mutex>
+//#include <mutex>
 #include <fstream>
 
 template<class T>
@@ -25,7 +25,7 @@ private:
     std::map<T, Node> nodes;
     // only addNode is protected as other operations are not to be used
     // in parallel
-    std::mutex under_construction; 
+    //std::mutex under_construction; 
     
 public:
     /*
@@ -92,7 +92,7 @@ template<class T>
 class SeedsGraph<T>::Node{
     // only protect addPrev/addNext as other operations are not to
     // be used in parallel
-    std::mutex under_construction; 
+    //std::mutex under_construction; 
     
 public:
     const T seed;
@@ -136,7 +136,7 @@ bool SeedsGraph<T>::Locus::operator == (const Locus& x) const{
 
 template<class T>
 SeedsGraph<T>::Node::Node(Node&& other): seed(std::move(other.seed)) {
-    const std::lock_guard<std::mutex> lock(other.under_construction);
+    //const std::lock_guard<std::mutex> lock(other.under_construction);
     locations = std::move(other.locations);
     read_ct = std::exchange(other.read_ct, 0);
 }
@@ -144,7 +144,7 @@ SeedsGraph<T>::Node::Node(Node&& other): seed(std::move(other.seed)) {
 template<class T>
 void SeedsGraph<T>::Node::addPrev(const size_t read_id, const size_t pos,
 				  Node* prev){
-    const std::lock_guard<std::mutex> lock(under_construction);
+    //const std::lock_guard<std::mutex> lock(under_construction);
     
     auto result = locations.emplace(std::piecewise_construct,
 				    std::forward_as_tuple(read_id, pos),
@@ -168,7 +168,7 @@ void SeedsGraph<T>::Node::addPrev(const size_t read_id, const size_t pos,
 template<class T>
 void SeedsGraph<T>::Node::addNext(const size_t read_id, const size_t pos,
 				  Node* next){
-    const std::lock_guard<std::mutex> lock(under_construction);
+    //const std::lock_guard<std::mutex> lock(under_construction);
     
     auto result = locations.emplace(std::piecewise_construct,
 				    std::forward_as_tuple(read_id, pos),
@@ -200,7 +200,7 @@ typename SeedsGraph<T>::Node* SeedsGraph<T>::getNode(const T& key) const{
 
 template<class T>
 typename SeedsGraph<T>::Node* SeedsGraph<T>::addNode(T& key){
-    const std::lock_guard<std::mutex> lock(under_construction);
+    //const std::lock_guard<std::mutex> lock(under_construction);
 
     auto it = nodes.lower_bound(key);
     if(it != nodes.end() && it->first == key) return &(it->second);
