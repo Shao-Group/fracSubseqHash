@@ -53,6 +53,16 @@ public:
     void removeUniqSeeds();
 
     /*
+      Print all the nodes/edges in the graph in the dot format to fout.
+      The decode function is used for transforming the key into a string.
+    */
+    template<class... Args>
+    void printNodesInDot(std::ofstream& fout,
+			 std::string (*decode)(const T&, Args...),
+			 Args... args) const;
+    void printEdgesInDot(std::ofstream& fout) const;
+
+    /*
       Graph IO with the given filename.
     */
     void saveGraph(const char* filename);
@@ -95,11 +105,12 @@ class SeedsGraph<T>::Node{
     //std::mutex under_construction; 
     
 public:
-    const T seed;
+    T seed;
+    size_t id; //assigned in construction order
     std::map<Locus, Path> locations;
     size_t read_ct; // number of distinct reads that contain this seed
     
-    Node(T& seed):seed(std::move(seed)), read_ct(1) {};
+    Node(T& seed, size_t id):seed(std::move(seed)), id(id), read_ct(1) {};
     Node(Node&& other);
     /*
       Add an edge to this node; 
@@ -107,6 +118,13 @@ public:
     */
     void addPrev(const size_t read_id, const size_t pos, Node* prev);
     void addNext(const size_t read_id, const size_t pos, Node* next);
+
+    /*
+      String representation of this node (without edge info) in dot format.
+    */
+    template<class... Args>
+    std::string toString(std::string (*decode)(const T&, Args...),
+			 Args... args) const;
     
 };
 
@@ -135,7 +153,8 @@ bool SeedsGraph<T>::Locus::operator == (const Locus& x) const{
 /************* NODE *************/
 
 template<class T>
-SeedsGraph<T>::Node::Node(Node&& other): seed(std::move(other.seed)) {
+SeedsGraph<T>::Node::Node(Node&& other): seed(std::move(other.seed)),
+					 id(std::exchange(other.id, 0)) {
     //const std::lock_guard<std::mutex> lock(other.under_construction);
     locations = std::move(other.locations);
     read_ct = std::exchange(other.read_ct, 0);
@@ -184,6 +203,15 @@ void SeedsGraph<T>::Node::addNext(const size_t read_id, const size_t pos,
 }
 
 
+template<class T> template<class... Args>
+std::string SeedsGraph<T>::Node::toString(
+    std::string (*decode)(const T&, Args...),
+    Args... args) const{
+
+    return "n" + std::to_string(id) + " [label=\"" +
+	decode(seed, args...) + "\"];";
+}
+
 /************* SEEDSGRAPH *************/
 
 template<class T>
@@ -205,7 +233,8 @@ typename SeedsGraph<T>::Node* SeedsGraph<T>::addNode(T& key){
     auto it = nodes.lower_bound(key);
     if(it != nodes.end() && it->first == key) return &(it->second);
     else{
-	it = nodes.emplace_hint(it, key, Node(key));
+	size_t id = nodes.size();
+	it = nodes.emplace_hint(it, key, Node(key, id));
 	return &(it->second);
     }
 }
@@ -226,6 +255,38 @@ template<class T>
 void SeedsGraph<T>::removeUniqSeeds(){
     //TODO
 }
+
+
+template<class T> template<class... Args>
+void SeedsGraph<T>::printNodesInDot(std::ofstream& fout,
+				    std::string (*decode)(const T&, Args...),
+				    Args... args) const{
+    for(const auto& it : nodes){
+	fout << it.second.toString(decode, args...) << std::endl;
+    }
+}
+
+template<class T>
+void SeedsGraph<T>::printEdgesInDot(std::ofstream& fout) const{
+    for(const auto& it : nodes){
+	const Node& cur = it.second;
+	std::map<Node*, unsigned int> out_edges;
+	for(const auto& loc_it : cur.locations){
+	    if(loc_it.second.next){
+		auto result = out_edges.emplace(loc_it.second.next, 1);
+		if(!result.second){//key exists
+		    ++ result.first->second;
+		}
+	    }
+	}
+
+	for(const auto& n : out_edges){
+	    fout << "n" << cur.id << " -> n" << n.first->id
+		 << " [label=\"" << n.second << "\"];" << std::endl; 
+	}
+    }
+}
+
 
 /*
   Save the graph to the given filename.

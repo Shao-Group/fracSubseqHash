@@ -30,6 +30,7 @@ struct Seed{
     //number of consecutive windows that all produce this seed
     unsigned int span;
     Seed(const kmer v, const unsigned int pos): v(v), pos(pos), span(1) {};
+    Seed() {};
 };
 
 
