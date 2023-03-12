@@ -43,7 +43,7 @@ public:
 
     /*
       Remove a node n, n is assumed to be in nodes.
-      All the adjacent edges are also removed.
+      All the adjacent in- and out-edges are sewed accordingly.
     */
     void removeNode(Node* n);
 
@@ -94,6 +94,7 @@ template<class T>
 struct SeedsGraph<T>::Path{
     Node *prev, *next;
     Path(Node* p, Node* n): prev(p), next(n) {};
+    Path(const Path& o) = delete;
 };
 
 
@@ -110,7 +111,7 @@ public:
     std::map<Locus, Path> locations;
     size_t read_ct; // number of distinct reads that contain this seed
     
-    Node(T& seed, size_t id):seed(std::move(seed)), id(id), read_ct(1) {};
+    Node(T& seed, size_t id):seed(std::move(seed)), id(id), read_ct(0) {};
     Node(Node&& other);
     /*
       Add an edge to this node; 
@@ -239,13 +240,31 @@ typename SeedsGraph<T>::Node* SeedsGraph<T>::addNode(T& key){
     }
 }
 
-/*
-  Remove a node n, n is assumed to be in nodes.
-  All the adjacent edges are also removed.
-*/
 template<class T>
 void SeedsGraph<T>::removeNode(Node* n){
-    //TODO
+    //sewing all the paths through this node to skip this node
+    for(auto& l : n->locations){
+	Path& p = l.second;
+	if(p.prev){
+	    //search by current locus, should find the locus
+	    //of the prev seed on this read
+	    auto predecessor = p.prev->locations.lower_bound(l.first);
+	    if(predecessor != p.prev->locations.begin()){//should always be true
+		--predecessor;
+		//assert(predecessor->second.next == n)
+		predecessor->second.next = p.next;
+	    }
+	}
+	if(p.next){
+	    //search by current locus, should find the locus
+	    //of the next seed on this read
+	    auto successor = p.next->locations.upper_bound(l.first);
+	    //assert(successor->second.prev == n)
+	    successor->second.prev = p.prev;
+	}
+    }
+
+    nodes.erase(n->seed);
 }
 
 /*
@@ -253,7 +272,11 @@ void SeedsGraph<T>::removeNode(Node* n){
 */
 template<class T>
 void SeedsGraph<T>::removeUniqSeeds(){
-    //TODO
+    for(auto& it : nodes){
+	if(it.second.read_ct < 2){
+	    removeNode(&it.second);
+	}
+    }
 }
 
 

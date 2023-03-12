@@ -35,7 +35,11 @@ struct ReadPath{
     Node *head, *tail;
 
     ReadPath(const size_t read_idx):read_idx(read_idx),
-				    head(nullptr), tail(nullptr){};
+				    head(nullptr), tail(nullptr) {};
+
+    ReadPath(ReadPath&& o): read_idx(exchange(o.read_idx, 0)),
+			    head(exchange(o.head, nullptr)),
+			    tail(exchange(o.tail, nullptr)) {};
 };
 
 inline Node* storeSeedWithPosInGraph(
@@ -92,15 +96,20 @@ void saveGraphToDot(const char* filename, const unsigned int k,
     
     //add head and tail nodes for each path
     for(const ReadPath& p : paths){
-	fout << "st" << p.read_idx << " [label=\"Read " << p.read_idx
-	     << " head\"];" << endl;
-	fout << "ed" << p.read_idx << " [label=\"Read " << p.read_idx
-	     << " tail\"];" << endl;
-	//add edge from head to first node
-	fout << "st" << p.read_idx << " -> n" << p.head->id << ";" << endl;
-
-	//add edge from last node to tail
-	fout << "n" << p.tail->id << " -> ed" << p.read_idx << ";" << endl;
+	if(p.head){
+	    fout << "st" << p.read_idx << " [label=\"Read " << p.read_idx
+		 << " head\"];" << endl;
+	    fout << "ed" << p.read_idx << " [label=\"Read " << p.read_idx
+		 << " tail\"];" << endl;
+	    //add edge from head to first node
+	    fout << "st" << p.read_idx << " -> n" << p.head->id << ";" << endl;
+	    
+	    //add edge from last node to tail
+	    fout << "n" << p.tail->id << " -> ed" << p.read_idx << ";" << endl;
+	}else{
+	    fout << "// read " << p.read_idx
+		 << " has no overlapping seeds with others" << endl;
+	}
     }
     
     fout << "} //end of graph" << endl;
@@ -128,7 +137,8 @@ int main(int argc, const char * argv[])
     vector<ReadPath> paths;
     paths.reserve(n);
     size_t j;
-    
+
+    //load all seeds
     struct stat test_file;
     for(j=1; j<=n; j+=1){
 	sprintf(filename+dir_len, "%zu.subseqseed", j);
@@ -140,6 +150,33 @@ int main(int argc, const char * argv[])
 	loadSubseqSeeds(filename, j, g, paths.back());
     }
 
+    // move the head and tail pointers of each path to point to the first
+    // and last (resp.) non-unique seeds in the path
+    Node* cur;
+    for(ReadPath& p : paths){
+	cur = p.head;
+	while(cur && cur->read_ct < 2){
+	    //if read_ct is 1, the first (or the only, if there is no loop in the path)
+	    //in locations must correspond to the cur path
+	    p.head = cur->locations.begin()->second.next;
+	    g.removeNode(cur);
+	    cur = p.head;
+	}
+
+	if(cur){
+	    cur = p.tail;
+	    while(cur && cur->read_ct < 2){
+		p.tail = cur->locations.rbegin()->second.prev;
+		g.removeNode(cur);
+		cur = p.tail;
+	    }
+	}else{
+	    //entire path has been removed
+	    p.tail = nullptr;
+	}
+    }
+
+    //remove remaining unique nodes
     //only keep reads that appear on multiple distinct reads
     g.removeUniqSeeds();
 
