@@ -351,14 +351,9 @@ void saveSubseqSeeds(const char* filename,
 void loadSubseqSeeds(const char* filename, const int read_id,
 		     std::map<kmer, std::vector<int> > &all_seeds){
     FILE* fin = fopen(filename, "rb");
-    size_t ret = 1;
-    kmer seed;
-    int ct;
-    while(ret == 1){
-	ret = fread(&seed, sizeof(kmer), 1, fin);
-	fread(&ct, sizeof(int), 1, fin);
-	fseek(fin, sizeof(int)*ct, SEEK_CUR); //skip the position info for now
-	auto result = all_seeds.insert(std::pair<kmer, std::vector<int> >(seed, std::vector<int>(1, read_id)));
+    Seed s;
+    while(fread(&s, sizeof(s), 1, fin) == 1){
+	auto result = all_seeds.emplace(s.v, std::move(std::vector<int>(1,read_id)));
 	if(result.second == false && result.first->second.back() < read_id){
 	    result.first->second.push_back(read_id);
 	}

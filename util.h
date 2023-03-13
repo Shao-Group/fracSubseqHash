@@ -167,7 +167,6 @@ void saveSubseqSeeds(const char* filename,
 		     const std::vector<Seed>& seeds_list);
 
 /*
-  ***DEPRECATED***
   Read seeds of a read from file, merge them into a map where the seed
   is key and value is a vector of read ids.
   The seed location info is currently unused.

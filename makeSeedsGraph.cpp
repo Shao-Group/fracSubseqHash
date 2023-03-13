@@ -30,18 +30,6 @@ string kmerToString(const kmer& x, unsigned int k, char* buf){
     return string(buf);
 }
 
-struct ReadPath{
-    size_t read_idx;
-    Node *head, *tail;
-
-    ReadPath(const size_t read_idx):read_idx(read_idx),
-				    head(nullptr), tail(nullptr) {};
-
-    ReadPath(ReadPath&& o): read_idx(exchange(o.read_idx, 0)),
-			    head(exchange(o.head, nullptr)),
-			    tail(exchange(o.tail, nullptr)) {};
-};
-
 inline Node* storeSeedWithPosInGraph(
     kmer seed, const size_t read_idx, const size_t cur_pos,
     size_t* prev_pos, Node* prev, Graph& g){
@@ -58,61 +46,32 @@ inline Node* storeSeedWithPosInGraph(
     return cur;
 }
 
-void loadSubseqSeeds(const char* filename, const size_t read_idx,
-		     Graph& g, ReadPath& p){
+void loadSubseqSeeds(const char* filename, const size_t read_idx, Graph& g){
     FILE* fin = fopen(filename, "rb");
     Seed s;
     size_t prev_pos;
     Node* prev=nullptr;
+    Node *head=nullptr, *tail=nullptr;
 
     if(fread(&s, sizeof(s), 1, fin) == 1){
 	//first node
 	prev = g.addNode(s.v);
 	prev_pos = s.pos;
-	p.head = p.tail = prev;
+	head = tail = prev;
 
 	//following nodes
 	while(fread(&s, sizeof(s), 1, fin) == 1){
 	    prev = storeSeedWithPosInGraph(s.v, read_idx, s.pos,
 					   &prev_pos, prev, g);
-	    p.tail = prev;
+	    tail = prev;
 	}
+
+	g.addReadPath(read_idx, head, tail);
     }
     if(ferror(fin)){
 	fprintf(stderr, "Error reading %s/n", filename);
     }
     fclose(fin);
-}
-
-void saveGraphToDot(const char* filename, const unsigned int k,
-		    const Graph& g, const vector<ReadPath>& paths){
-    ofstream fout(filename, ofstream::out);
-    char buf[k+1];
-    buf[k] = '\0';
-    
-    fout << "digraph{" << endl;
-    g.printNodesInDot(fout, kmerToString, k, buf);
-    g.printEdgesInDot(fout);
-    
-    //add head and tail nodes for each path
-    for(const ReadPath& p : paths){
-	if(p.head){
-	    fout << "st" << p.read_idx << " [label=\"Read " << p.read_idx
-		 << " head\"];" << endl;
-	    fout << "ed" << p.read_idx << " [label=\"Read " << p.read_idx
-		 << " tail\"];" << endl;
-	    //add edge from head to first node
-	    fout << "st" << p.read_idx << " -> n" << p.head->id << ";" << endl;
-	    
-	    //add edge from last node to tail
-	    fout << "n" << p.tail->id << " -> ed" << p.read_idx << ";" << endl;
-	}else{
-	    fout << "// read " << p.read_idx
-		 << " has no overlapping seeds with others" << endl;
-	}
-    }
-    
-    fout << "} //end of graph" << endl;
 }
 
 int main(int argc, const char * argv[])
@@ -133,9 +92,7 @@ int main(int argc, const char * argv[])
 	++dir_len;
     }
     
-    Graph g;
-    vector<ReadPath> paths;
-    paths.reserve(n);
+    Graph g(n);
     size_t j;
 
     //load all seeds
@@ -146,44 +103,29 @@ int main(int argc, const char * argv[])
 	    fprintf(stderr, "Stopped, cannot find file %zu.subseqseed\n", j);
 	    break;
 	}
-	paths.emplace_back(j);
-	loadSubseqSeeds(filename, j, g, paths.back());
+	loadSubseqSeeds(filename, j, g);
     }
 
-    // move the head and tail pointers of each path to point to the first
-    // and last (resp.) non-unique seeds in the path
-    Node* cur;
-    for(ReadPath& p : paths){
-	cur = p.head;
-	while(cur && cur->read_ct < 2){
-	    //if read_ct is 1, the first (or the only, if there is no loop in the path)
-	    //in locations must correspond to the cur path
-	    p.head = cur->locations.begin()->second.next;
-	    g.removeNode(cur);
-	    cur = p.head;
-	}
-
-	if(cur){
-	    cur = p.tail;
-	    while(cur && cur->read_ct < 2){
-		p.tail = cur->locations.rbegin()->second.prev;
-		g.removeNode(cur);
-		cur = p.tail;
-	    }
-	}else{
-	    //entire path has been removed
-	    p.tail = nullptr;
-	}
-    }
-
-    //remove remaining unique nodes
     //only keep reads that appear on multiple distinct reads
     g.removeUniqSeeds();
 
-    //output
+    //output to dot file
     sprintf(filename+dir_len, "overlap-n%d-graph.dot", n);
-    
-    saveGraphToDot(filename, k, g, paths);
+    char buf[k+1];
+    buf[k] = '\0';
+    g.saveGraphToDot(filename, kmerToString, k, buf);
+
+    //save graph to binary file
+    sprintf(filename+dir_len, "overlap-n%d.graph", n);
+    g.saveGraph(filename);
+
+    //test save and load graph produce an identical copy
+    /*
+    Graph g2;
+    g2.loadGraph(filename);
+    sprintf(filename+dir_len, "overlap-n%d-graph.dot.cp", n);
+    g2.saveGraphToDot(filename, kmerToString, k, buf);
+    */
     
     return 0;
 }
