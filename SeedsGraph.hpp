@@ -267,7 +267,7 @@ std::string SeedsGraph<T>::Node::toString(
     Args... args) const{
 
     return "n" + std::to_string(id) + " [label=\"" +
-	decode(seed, args...) + " xlabel=\"" +
+	decode(seed, args...) + "\" xlabel=\"" +
 	std::to_string(read_ct) + "\"];";
 }
 
