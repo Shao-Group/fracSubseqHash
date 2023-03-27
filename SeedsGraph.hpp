@@ -293,7 +293,7 @@ std::string SeedsGraph<T>::Node::locToString() const{
 	std::to_string(list[0].pos) + ")";
     for(i=1; i<list.size(); ++i){
 	result += ", " + std::to_string(list[i].read_id) +
-	    "(" + std::to_string(list[i].pos) + ") ";
+	    "(" + std::to_string(list[i].pos) + ")";
     }
 
     return result;

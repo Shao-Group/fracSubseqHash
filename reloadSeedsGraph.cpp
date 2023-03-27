@@ -34,7 +34,7 @@ int main(int argc, const char * argv[])
     g.loadGraph(argv[1]);
 
     char filename[200];
-    sprintf(filename, "%s.dot", argv[1]);
+    sprintf(filename, "%s-withloc.dot", argv[1]);
 
     char buf[k+1];
     buf[k] = '\0';
