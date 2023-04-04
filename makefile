@@ -1,6 +1,6 @@
 CC=gcc
 CPP=g++
-CFLAGS+= -m64 -g -Wall
+CFLAGS+= -m64 -g -Wall -std=c++14
 LDFLAGS= -L$$GUROBI_HOME/lib -lgurobi91
 LIBS=
 INC= $$GUROBI_HOME/include/
@@ -11,7 +11,7 @@ ALLILP:= $(wildcard *_ILP.c)
 all: $(patsubst %.cpp,%.out,$(filter-out $(patsubst %.h,%.cpp,$(wildcard *.h)), $(wildcard *.cpp)))
 
 .PHONY: product
-product: CFLAGS = -O3
+product: CFLAGS = -O3 -std=c++14
 product: $(ALLDEP) $(patsubst %.cpp,%.out,$(filter-out $(patsubst %.o,%.cpp,$(ALLDEP)) $(ALLILP), $(wildcard *.cpp)))
 
 sampleFast%.out: sampleFast%.cpp

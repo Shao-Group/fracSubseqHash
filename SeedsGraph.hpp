@@ -152,6 +152,7 @@ public:
     template<class... Args>
     std::string toString(std::string (*decode)(const T&, Args...),
 			 Args... args) const;
+    std::string locToString() const;
     
     /*
       Node IO to binary file, helper functions to SeedsGraph::saveGraph.
@@ -268,8 +269,36 @@ std::string SeedsGraph<T>::Node::toString(
 
     return "n" + std::to_string(id) + " [label=\"" +
 	decode(seed, args...) + "\" xlabel=\"" +
-	std::to_string(read_ct) + "\"];";
+	std::to_string(read_ct) + "\" xlabel=\"" +
+	locToString() + "\"];";
 }
+
+template<class T>
+std::string SeedsGraph<T>::Node::locToString() const{
+    std::vector<Locus> list(locations.size());
+    size_t i = 0;
+    for(auto const& loc : locations){
+	list[i].read_id = loc.first.read_id;
+	list[i].pos = loc.first.pos;
+	++i;
+    }
+    struct{
+	bool operator()(Locus a, Locus b) const{
+	    if(a.pos == b.pos) return a.read_id < b.read_id;
+	    else return a.pos > b.pos;
+	}
+    }locByPos;
+    std::sort(list.begin(), list.end(), locByPos);
+    std::string result = std::to_string(list[0].read_id) + "(" +
+	std::to_string(list[0].pos) + ")";
+    for(i=1; i<list.size(); ++i){
+	result += ", " + std::to_string(list[i].read_id) +
+	    "(" + std::to_string(list[i].pos) + ")";
+    }
+
+    return result;
+}
+
 
 template<class T>
 void SeedsGraph<T>::Node::saveNode(std::ofstream& fout) const{
