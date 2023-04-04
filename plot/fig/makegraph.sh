@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
 
 echo "graph{"
 echo "node [shape=\"point\"];"
