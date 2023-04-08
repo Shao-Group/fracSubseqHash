@@ -33,11 +33,11 @@ void loadSubseqSeedsPos(const char* filename, const int read_id,
     FILE* fin = fopen(filename, "rb");
     Seed s;
     while(fread(&s, sizeof(s), 1, fin) == 1){
-	auto result = all_seeds.emplace(s.v, move(vector<Occurrence>(1)));
+	auto result = all_seeds.emplace(s.v, 1);
 	if(result.second == false){
-	    if(result.first->second.back().read_id < read_id){
-		result.first->second.emplace_back(read_id, s.pos);
-	    }
+	    //if(result.first->second.back().read_id < read_id){
+	    result.first->second.emplace_back(read_id, s.pos);
+	    //}
 	}else{
 	    Occurrence* x = &(result.first->second[0]);
 	    x->read_id = read_id;
@@ -83,7 +83,7 @@ int main(int argc, const char * argv[])
 	loadSubseqSeedsPos(filename, j, all_seeds);
     }
 
-    sprintf(filename+i, "overlap-n%d.all-pair", n);
+    sprintf(filename+i, "overlapPos-n%d.all-pair", n);
 
     Table share_ct(n);
 
@@ -96,7 +96,8 @@ int main(int argc, const char * argv[])
 	    a = seed.second[0].read_id;
 	    for(i=1; i<c; ++i){
 		b = seed.second[i].read_id;
-		++ share_ct.access(a, b);
+		if(a < b) ++ share_ct.access(a, b);
+		else if (b < a) ++ share_ct.access(b, a);
 		a = b;
 		// if(share_ct.access(a, b) == threshold){
 		// fprintf(fout, "%d %d\n", a, b);
