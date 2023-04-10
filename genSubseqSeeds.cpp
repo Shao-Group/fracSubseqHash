@@ -32,7 +32,7 @@ using namespace std;
 
 #define NUMTHREADS 15
 #define EXPECTEDVALUE ((1lu<<30)+(1lu<<29))
-#define THRESHOLDFACTOR 0.785
+#define THRESHOLDFACTOR 0.0//0.785
 
 
 struct Read{
@@ -150,9 +150,9 @@ int main(int argc, const char * argv[])
 	}
     }
     ++tablename_st;
-    dir_len = sprintf(output_dir, "%.*s-seeds-%s-t%f",
+    dir_len = sprintf(output_dir, "%.*s-seeds-%s-n%d-k%d-t%f",
 		      dir_len, argv[1],
-		      table_filename+tablename_st,
+		      table_filename+tablename_st, n, k,
 		      THRESHOLDFACTOR);
 
     mkdir(output_dir, 0744);
