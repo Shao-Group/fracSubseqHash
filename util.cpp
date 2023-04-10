@@ -378,13 +378,17 @@ unsigned int& Table::access(size_t i, size_t j){
     return arr[((((n<<1)-i)*(i-1))>>1)+j-i-1];
 }
 
-void Table::saveNoneZeroEntries(const char* filename){
-    FILE* fout = fopen(filename, "w");
+void Table::saveNoneZeroEntries(const char* filename, const char* mode/*="w"*/, const bool rev/*=false*/){
+    FILE* fout = fopen(filename, mode);
 
     size_t i, j, k, size=(n*(n-1))>>1;
     for(k=0, i=1, j=2; k<size; ++k){
 	if(arr[k] > 0){
-	    fprintf(fout, "%zu %zu %u\n", i, j, arr[k]);
+	    if(rev){
+		fprintf(fout, "%zu %zu %u\n", j, i, arr[k]);
+	    }else{
+		fprintf(fout, "%zu %zu %u\n", i, j, arr[k]);
+	    }
 	}
 	j += 1;
 	if(j > n){

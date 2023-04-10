@@ -190,7 +190,8 @@ public:
     Table(size_t n);
     ~Table();
     unsigned int& access(size_t i, size_t j);
-    void saveNoneZeroEntries(const char* filename);
+    //for cell[i][j], output i j, if rev, output j i
+    void saveNoneZeroEntries(const char* filename, const char* mode="w", const bool rev=false);
 };
 
 #endif // util.h

@@ -54,7 +54,7 @@ fi
 
 #generate dot file, from dot to svg
 #dot -Knop2 -Tsvg xxx.dot > xxx.svg
-echo 'graph{'
+echo 'digraph{'
 echo 'graph [splines=line];'
 echo 'node [width=1.2, height=.1];'
 
@@ -86,10 +86,10 @@ do
 
     if [[ "$found" = true && $read1 -eq $fread1 && $read2 -eq $fread2 ]]
     then
-	echo "r$read1 -- r$read2 [color=\"lime\", fontcolor=\"limegreen\", label=\"$weight\"];"
+	echo "r$read1 -> r$read2 [color=\"lime\", fontcolor=\"limegreen\", label=\"$weight\"];"
 	found=false
     else
-	echo "r$read1 -- r$read2 [color=\"black\"];"
+	echo "r$read1 -> r$read2 [color=\"black\"];"
     fi
 done 3<$all_irr 4<$found_irr
 
@@ -118,8 +118,8 @@ do
 	    ((cur_x=140+loc[$read1]-loc[$read2]))
 	fi
 	echo "r$read1""midr$read2 [pos=\"$cur_x,$cur_y\", shape=\"plaintext\", fontcolor=\"blue\", label=\"$weight\"];"
-	echo "r$read1:w -- r$read1""midr$read2:c [color=\"cyan\"];"
-	echo "r$read1""midr$read2:c -- r$read2:w [color=\"cyan\"];"
+	echo "r$read1:w -> r$read1""midr$read2:c [color=\"cyan\", dir=\"none\"];"
+	echo "r$read1""midr$read2:c -> r$read2:w [color=\"cyan\"];"
     fi
 done 3<$found_correct 4<$found_irr
 
@@ -148,8 +148,8 @@ do
 	    ((cur_x=80-(loc[$read1]-loc[$read2])/40))
 	fi
 	echo "r$read1""midr$read2 [pos=\"$cur_x,$cur_y\", shape=none, fontcolor=\"red\", label=\"$weight\"];"
-	echo "r$read1:e -- r$read1""midr$read2:c [color=\"red\"];"
-	echo "r$read1""midr$read2:c -- r$read2:e [color=\"red\"];"
+	echo "r$read1:e -> r$read1""midr$read2:c [color=\"red\", dir=\"none\"];"
+	echo "r$read1""midr$read2:c -> r$read2:e [color=\"red\"];"
     fi
 done 3<$found_all 4<$found_correct
 

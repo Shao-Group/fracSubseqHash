@@ -11,6 +11,7 @@
 
 #include "util.h"
 #include <sys/stat.h>
+#include <cstdlib>
 #include <iostream>
 #include <fstream>
 
@@ -86,6 +87,7 @@ int main(int argc, const char * argv[])
     sprintf(filename+i, "overlapPos-n%d.all-pair", n);
 
     Table share_ct(n);
+    Table share_ct_rev(n);
 
     int a, b, c;
     
@@ -97,7 +99,7 @@ int main(int argc, const char * argv[])
 	    for(i=1; i<c; ++i){
 		b = seed.second[i].read_id;
 		if(a < b) ++ share_ct.access(a, b);
-		else if (b < a) ++ share_ct.access(b, a);
+		else if (b < a) ++ share_ct_rev.access(b, a);
 		a = b;
 		// if(share_ct.access(a, b) == threshold){
 		// fprintf(fout, "%d %d\n", a, b);
@@ -107,6 +109,11 @@ int main(int argc, const char * argv[])
     }
 
     share_ct.saveNoneZeroEntries(filename);
-    
-    return 0;
+    share_ct_rev.saveNoneZeroEntries(filename, "a", true);
+
+    //sort the output
+    char cmd[2000];
+    //sprintf(cmd, "sort -k1g,2 -k2g,3 -o %s %s", filename, filename);
+    sprintf(cmd, "bash -c 'sort -k1g,2 -k2g,3 -o %s{,}'", filename);
+    return system(cmd);
 }

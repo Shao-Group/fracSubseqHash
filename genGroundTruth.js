@@ -58,13 +58,15 @@ var getopt = function(args, ostr) {
 function main(args)
 {
     var c, min_ovlp = 15;
-    while ((c = getopt(args, "l:")) != null) {
+    while ((c = getopt(args, "l:d")) != null) {
 	if (c == 'l') min_ovlp = parseInt(getopt.arg);
+	else if (c == 'd') output_directed = true;
     }
     if (args.length - getopt.ind < 1) {
 	print("Usage: genGroundTruth.js [options] <headers.efa>");
 	print("Options:");
 	print("  -l INT     min overlap length [15]");
+	print("  -d         output directed pairs, if not set, a<b for each output pair (a,b)");
 	exit(1);
     }
 
@@ -85,7 +87,11 @@ function main(args)
 	for (var i=0; i<a.length; ++i){
 	    var len = (ed > a[i][2] ? a[i][2] : ed) - st;
 	    if (len >= min_ovlp){
-		fout.write((a[i][3] < name ? a[i][3]+" "+name : name+" "+a[i][3])+" "+len+"\n");
+		if(output_directed){
+                    fout.write(a[i][3]+" "+name+" "+len+"\n");
+		}else{
+		    fout.write((a[i][3] < name ? a[i][3]+" "+name : name+" "+a[i][3])+" "+len+"\n");
+		}
 	    }
 	}
 	a.push([ctg, st, ed, name]);
