@@ -8,11 +8,11 @@ ALLDEP:= $(patsubst %.h,%.o,$(wildcard *.h)) $(wildcard *.hpp) $(wildcard *.tpp)
 ALLILP:= $(wildcard *_ILP.c)
 
 .PHONY: all
-all: $(patsubst %.cpp,%.out,$(filter-out $(patsubst %.h,%.cpp,$(wildcard *.h)), $(wildcard *.cpp)))
+all: $(patsubst %.cpp,%.out,$(filter-out genSubseqSeedsGraph.cpp, $(filter-out $(patsubst %.h,%.cpp,$(wildcard *.h)), $(wildcard *.cpp))))
 
 .PHONY: product
 product: CFLAGS = -O3 -std=c++14
-product: $(ALLDEP) $(patsubst %.cpp,%.out,$(filter-out $(patsubst %.o,%.cpp,$(ALLDEP)) $(ALLILP), $(wildcard *.cpp)))
+product: $(ALLDEP) $(patsubst %.cpp,%.out,$(filter-out genSubseqSeedsGraph.cpp, $(filter-out $(patsubst %.o,%.cpp,$(ALLDEP)) $(ALLILP), $(wildcard *.cpp))))
 
 sampleFast%.out: sampleFast%.cpp
 	$(CPP) $(CFLAGS) -std=c++17 -o $@ $^ $(LIBS)

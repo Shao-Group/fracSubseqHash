@@ -32,6 +32,7 @@ string kmerToString(const kmer& x, unsigned int k, char* buf){
 
 inline Node* storeSeedWithPosInGraph(
     kmer seed, const size_t read_idx, const size_t cur_pos,
+    const size_t cur_span,
     size_t* prev_pos, Node* prev, Graph& g){
     //avoid self loops -- already done at seed generation
     //if(prev && prev->seed == seed) return prev;
@@ -39,8 +40,8 @@ inline Node* storeSeedWithPosInGraph(
     Node* cur = g.addNode(seed);
 
     if(prev){
-	prev->addNext(read_idx, *prev_pos, cur);
-	cur->addPrev(read_idx, cur_pos, prev);
+	prev->addNext(read_idx, *prev_pos, cur_span, cur);
+	cur->addPrev(read_idx, cur_pos, cur_span, prev);
     }
     *prev_pos = cur_pos;
     return cur;
@@ -61,7 +62,7 @@ void loadSubseqSeeds(const char* filename, const size_t read_idx, Graph& g){
 
 	//following nodes
 	while(fread(&s, sizeof(s), 1, fin) == 1){
-	    prev = storeSeedWithPosInGraph(s.v, read_idx, s.pos,
+	    prev = storeSeedWithPosInGraph(s.v, read_idx, s.pos, s.span,
 					   &prev_pos, prev, g);
 	    tail = prev;
 	}

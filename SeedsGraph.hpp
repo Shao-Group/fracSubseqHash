@@ -100,9 +100,13 @@ template<class T>
 struct SeedsGraph<T>::Locus{//location info (on the read it originates from) of a seed
     size_t read_id;
     size_t pos;
+    size_t span;
 
-    Locus(const size_t id, const size_t pos): read_id(id), pos(pos) {};
-    Locus(): Locus(0, 0) {};
+    Locus(const size_t id, const size_t pos, const size_t span):
+	read_id(id), pos(pos), span(span) {};
+    Locus(): Locus(0, 0, 0) {};
+    //Locus(const Locus& o): Locus(o.read_id, o.pos, o.span) {};
+
     
     /*
       Ordered first by read_id, then by pos.
@@ -143,8 +147,10 @@ public:
       Add an edge to this node; 
       Increment read_ct if the read_id does not appear in locations.
     */
-    void addPrev(const size_t read_id, const size_t pos, Node* prev);
-    void addNext(const size_t read_id, const size_t pos, Node* next);
+    void addPrev(const size_t read_id, const size_t pos,
+		 const size_t span, Node* prev);
+    void addNext(const size_t read_id, const size_t pos,
+		 const size_t span, Node* next);
 
     /*
       String representation of this node (without edge info) in dot format.
@@ -221,11 +227,11 @@ SeedsGraph<T>::Node::Node(Node&& other): seed(std::move(other.seed)),
 
 template<class T>
 void SeedsGraph<T>::Node::addPrev(const size_t read_id, const size_t pos,
-				  Node* prev){
+				  const size_t span, Node* prev){
     //const std::lock_guard<std::mutex> lock(under_construction);
     
     auto result = locations.emplace(std::piecewise_construct,
-				    std::forward_as_tuple(read_id, pos),
+				    std::forward_as_tuple(read_id, pos, span),
 				    std::forward_as_tuple(prev, nullptr));
     //new Locus inserted, since each read is processed in ascending pos
     //if this seed has been found on this same read before, it must
@@ -245,11 +251,11 @@ void SeedsGraph<T>::Node::addPrev(const size_t read_id, const size_t pos,
 
 template<class T>
 void SeedsGraph<T>::Node::addNext(const size_t read_id, const size_t pos,
-				  Node* next){
+				  const size_t span, Node* next){
     //const std::lock_guard<std::mutex> lock(under_construction);
     
     auto result = locations.emplace(std::piecewise_construct,
-				    std::forward_as_tuple(read_id, pos),
+				    std::forward_as_tuple(read_id, pos, span),
 				    std::forward_as_tuple(nullptr, next));
     if(result.second) {
 	if(result.first == locations.begin()) ++ read_ct;
@@ -278,8 +284,10 @@ std::string SeedsGraph<T>::Node::locToString() const{
     std::vector<Locus> list(locations.size());
     size_t i = 0;
     for(auto const& loc : locations){
-	list[i].read_id = loc.first.read_id;
-	list[i].pos = loc.first.pos;
+	list[i] = loc.first;
+	//list[i].read_id = loc.first.read_id;
+	//list[i].pos = loc.first.pos;
+	//list[i].span = loc.first.span;
 	++i;
     }
     struct{
@@ -290,10 +298,11 @@ std::string SeedsGraph<T>::Node::locToString() const{
     }locByPos;
     std::sort(list.begin(), list.end(), locByPos);
     std::string result = std::to_string(list[0].read_id) + "(" +
-	std::to_string(list[0].pos) + ")";
+	std::to_string(list[0].pos) + "+" + std::to_string(list[0].span) + ")";
     for(i=1; i<list.size(); ++i){
 	result += ", " + std::to_string(list[i].read_id) +
-	    "(" + std::to_string(list[i].pos) + ")";
+	    "(" + std::to_string(list[i].pos) +
+	    "+" + std::to_string(list[i].span) + ")";
     }
 
     return result;
@@ -335,7 +344,7 @@ void SeedsGraph<T>::Node::loadNode(std::ifstream& fin){
 	fin.read(reinterpret_cast<char*>(&y), sizeof(y));
 	locations.emplace_hint(locations.end(),
 			       std::piecewise_construct,
-			       std::forward_as_tuple(l.read_id, l.pos),
+			       std::forward_as_tuple(l),
 			       std::forward_as_tuple(reinterpret_cast<Node*>(x),
 						     reinterpret_cast<Node*>(y)));
     }
