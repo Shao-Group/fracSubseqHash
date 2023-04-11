@@ -94,6 +94,7 @@ do
 done 3<$all_irr 4<$found_irr
 
 #plot all transitive edges -- i.e., correct \setminus irr-edges
+echo "edge [color=\"cyan\"];"
 found=false;
 while read -u3 read1 read2 len weight
 do
@@ -118,12 +119,13 @@ do
 	    ((cur_x=140+loc[$read1]-loc[$read2]))
 	fi
 	echo "r$read1""midr$read2 [pos=\"$cur_x,$cur_y\", shape=\"plaintext\", fontcolor=\"blue\", label=\"$weight\"];"
-	echo "r$read1:w -> r$read1""midr$read2:c [color=\"cyan\", dir=\"none\"];"
-	echo "r$read1""midr$read2:c -> r$read2:w [color=\"cyan\"];"
+	echo "r$read1:w -> r$read1""midr$read2:c [dir=\"none\"];"
+	echo "r$read1""midr$read2:c -> r$read2:w;"
     fi
 done 3<$found_correct 4<$found_irr
 
 #plot all wrong edges
+echo "edge [color=\"red\"];"
 found=false;
 while read -u3 read1 read2 weight
 do
@@ -143,13 +145,22 @@ do
 	((cur_y=(loc[$read1]+loc[$read2])/2))
 	if [[ ${loc[$read1]} -gt ${loc[$read2]} ]]
 	then
-	    ((cur_x=80+(loc[$read1]-loc[$read2])/40))
+	    ((cur_x=160+(loc[$read1]-loc[$read2])/20))
 	else
-	    ((cur_x=80-(loc[$read1]-loc[$read2])/40))
+	    ((cur_x=160+(-loc[$read1]+loc[$read2])/20))
 	fi
-	echo "r$read1""midr$read2 [pos=\"$cur_x,$cur_y\", shape=none, fontcolor=\"red\", label=\"$weight\"];"
-	echo "r$read1:e -> r$read1""midr$read2:c [color=\"red\", dir=\"none\"];"
-	echo "r$read1""midr$read2:c -> r$read2:e [color=\"red\"];"
+	#handle short wrong edges pointing in the opposite direction
+	if [[ $cur_x -le 164 ]]
+	then
+	    #echo "r$read1""midr$read2 [pos=\"$cur_x,$cur_y\", shape=none, fontcolor=\"red\", label=\"$weight\"];"
+	    #echo "r$read1:ne -> r$read1""midr$read2:c [dir=\"none\"];"
+	    #echo "r$read1""midr$read2:c -> r$read2:se;"
+	    echo "r$read1:ne -> r$read2:se [fontcolor=\"red\", label=\"$weight\"];"
+	else
+	    echo "r$read1""midr$read2 [pos=\"$cur_x,$cur_y\", shape=none, fontcolor=\"red\", label=\"$weight\"];"
+	    echo "r$read1:e -> r$read1""midr$read2:c [dir=\"none\"];"
+	    echo "r$read1""midr$read2:c -> r$read2:e;"
+	fi
     fi
 done 3<$found_all 4<$found_correct
 
