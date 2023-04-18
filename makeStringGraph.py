@@ -15,8 +15,11 @@ if argc < 3 or argc > 4:
    print(f'Will use files {dir}/{example}.{header_ext} and {dir}/{example}-n60-k42-t0/unionPos.{found_ext}10')
    exit(1)
 
+
+output_filename = f'{dir}/{sys.argv[2]}.graphml'
 if argc == 4:
    found_ext += sys.argv[3]
+   output_filename += sys.argv[3]
 
 #check all needed files exist
 header_name = f'{dir}/{sys.argv[1]}.{header_ext}'
@@ -29,10 +32,6 @@ if not os.path.isfile(found_name):
    print(f'Cannot read found all file: {found_name}')
    exit(1)
 
-try:
-   header = open(header_name)
-except OSError as e:
-   print(e.strerror)
 
 
 #generate graph-tool graph
@@ -44,8 +43,9 @@ g.set_fast_edge_removal(True) #add edge becomes O(1) with O(E) additional space
 #create nodes from the sorted header file
 try:
    with open(header_name) as f:
-      vmap = {read:idx for read,idx in zip([line.split()[1][1:] for line in f.readlines()],
-                                           itertools.count(0,1))}         
+      vmap = {int(read):int(idx) for read,idx in
+              zip([line.split()[0][1:] for line in f.readlines()],
+                  itertools.count(0,1))}         
 except OSError as e:
    print(e.strerror)
    exit(1)
@@ -54,11 +54,18 @@ g.add_vertex(len(vmap))
 g.vertex_properties["id"] = g.new_vertex_property("int")
 # dict preserves input order since 3.7, otherwise use
 # g.vp.id.a = list(map(lambda kv: kv[0], sorted(vmap.items(), key=lambda kv: kv[1])))
-g.vp.id.a = vmap.key
+g.vp.id.a = list(vmap.keys())
 
 #create all edges from the found_all file
-g.edge_properties["weight"] = g.new_edge_property("int")'
-while read read1 read2 len
-do
-    
-done <$found_all
+try:
+   with open(found_name) as f:
+      g.add_edge_list(list(map(lambda x:(vmap[int(x[0])],
+                                         vmap[int(x[1])],
+                                         int(x[2])),
+                               (line.split() for line in f.readlines()))),
+                      eprops=[("weight", "int")])
+except OSError as e:
+   print(e.strerror)
+   exit(1)
+
+g.save(output_filename)
