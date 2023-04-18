@@ -44,7 +44,7 @@ g.set_fast_edge_removal(True) #add edge becomes O(1) with O(E) additional space
 try:
    with open(header_name) as f:
       vmap = {int(read):int(idx) for read,idx in
-              zip([line.split()[0][1:] for line in f.readlines()],
+              zip([line.split()[0,1:] for line in f.readlines()],
                   itertools.count(0,1))}         
 except OSError as e:
    print(e.strerror)
@@ -69,3 +69,10 @@ except OSError as e:
    exit(1)
 
 g.save(output_filename)
+
+v = g.get_vertices()
+in_w = g.get_in_degrees(v, g.ep.weight)
+out_w = g.get_out_degrees(v, g.ep.weight)
+bins = out_w - in_w
+
+
