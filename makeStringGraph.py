@@ -36,7 +36,9 @@ if not os.path.isfile(found_name):
 
 #generate graph-tool graph
 import itertools
+import numpy as np
 from graph_tool.all import *
+
 g = Graph()
 g.set_fast_edge_removal(True) #add edge becomes O(1) with O(E) additional space
 
@@ -73,6 +75,30 @@ g.save(output_filename)
 v = g.get_vertices()
 in_w = g.get_in_degrees(v, g.ep.weight)
 out_w = g.get_out_degrees(v, g.ep.weight)
-bins = out_w - in_w
+diff = out_w - in_w
+
+"""
+Bins used in the FAS algorithm by Eades et al.
+In the weighted version, number of bins is not
+necessarily 2|V|-3, so it is computed using
+numbers lo and hi (among the diff of out- and in-
+degrees of all vertices) and make (hi - lo + 1) + 2
+bins, the additional 2 are for sinks and sources).
+"""
+# doubly linked list structure within each bin
+# for each vertex, [prev, next, bin] are both indices
+links = np.full((g.num_vertices(), 3), -1, dtype=np.int32)
+
+sinks = (out_w == 0)
+sources = ~sinks & (in_w == 0)
+lo = diff[~sinks & ~sources].min()
+hi = diff[~sinks & ~sources].max()
+num_bins = hi - lo + 3
+bin_shift = 2 - lo
+
+# storing [st, ed] indices for the doubly linked
+# list of each bin, the bins at index 0 and 1 are
+# for sinks and sources, respectively
+bins = np.full((num_bins, 2), -1, dtype=np.int32)
 
 
