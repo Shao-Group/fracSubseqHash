@@ -79,7 +79,8 @@ def remove_in_edges(in_edges, sinks, sources, ordered,
             diff[st] -= w
          dll_add_first(diff[st], bins, links, st) #add to new bin
 
-def output_in_dot(g, ordered, out_filename):
+         
+def output_in_dot(g, ordered, out_filename, all_true_pairs):
    names = g.vp.id.a
    height = 0
    height_diff = -80
@@ -96,7 +97,28 @@ def output_in_dot(g, ordered, out_filename):
             if e is None:
                fout.write(f'r{names[i-1]} -> r{names[i]} [label=\"discovered\"];\n')
             else:
-               fout.write(f'r{names[i-1]} -> r{names[i]} [label=\"{g.ep.weight[g.edge(i-1, i)]}\"];\n')
+               fout.write(f'r{names[i-1]} -> r{names[i]} [label=\"{g.ep.weight[e]}\"];\n')
+
+      sorted_ordered = np.argsort(ordered)
+      for i in range(1, g.num_vertices()):
+         s = sorted_ordered[i-1]
+         t = sorted_ordered[i]
+         if t - s == 1:
+            continue
+
+         e = g.edge(s,t)
+         w = "discovered" if e is None else g.ep.weight[e]
+         y = ((s+t)*height_diff)>>1
+         if (s,t) in all_true_pairs: 
+            x =  140 + (t-s)*height_diff
+            fout.write(f'r{names[s]}midr{names[t]} [pos=\"{x},{y}\", shape=none, fontcolor=\"blue\", label=\"{w}\"];\n')
+            fout.write(f'r{names[s]} -> r{names[s]}midr{names[t]}:c [dir=\"none\", color=\"cyan\"];\n')
+            fout.write(f'r{names[s]}midr{names[t]}:c -> r{names[t]} [color=\"cyan\"];\n')
+         else:
+            x = 160 + 4*abs(t-s)
+            fout.write(f'r{names[s]}midr{names[t]} [pos=\"{x},{y}\", shape=none, fontcolor=\"red\", label=\"{w}\"];\n')
+            fout.write(f'r{names[s]} -> r{names[s]}midr{names[t]}:c [dir=\"none\", color=\"red\"];\n')
+            fout.write(f'r{names[s]}midr{names[t]}:c -> r{names[t]} [color=\"red\"];\n')
 
       fout.write('}\n')
 
@@ -105,12 +127,13 @@ def main(argc, argv):
    dir = "sample-reads"
    header_ext = "header-sorted"
    found_ext = "all-pair"
+   true_ext = "truepairs-directed"
 
    if argc < 3 or argc > 4:
       example = "sim-e-coli-pb-le20k-nosub"
       print("Usage: makeStringGraph.py <sample-basename> <overlap-basename> [overlap-extension]")
       print(f'Example: makeStringGraph.py {example} {example}-n60-k42-t0/unionPos 10')
-      print(f'Will use files {dir}/{example}.{header_ext} and {dir}/{example}-n60-k42-t0/unionPos.{found_ext}10')
+      print(f'Will use files {dir}/{example}.{header_ext}, {dir}/{example}.{true_ext} and {dir}/{example}-n60-k42-t0/unionPos.{found_ext}10')
       exit(1)
 
 
@@ -132,7 +155,10 @@ def main(argc, argv):
       print(f'Cannot read found all file: {found_name}')
       exit(1)
 
-
+   true_name = f'{dir}/{argv[1]}.{true_ext}'
+   if not os.path.isfile(true_name):
+      print(f'Cannot read true pair file: {true_name}')
+      exit(1)
 
    #generate graph-tool graph
    g = Graph()
@@ -162,6 +188,15 @@ def main(argc, argv):
                                             int(x[2])),
                                   (line.split() for line in f.readlines()))),
                          eprops=[("weight", "int")])
+   except OSError as e:
+      print(e.strerror)
+      exit(1)
+
+   try:
+      with open(true_name) as f:
+            all_true_pairs = set(map(lambda x:(vmap[int(x[0])],
+                                               vmap[int(x[1])]),
+                                     (line.split() for line in f.readlines())))
    except OSError as e:
       print(e.strerror)
       exit(1)
@@ -234,7 +269,7 @@ def main(argc, argv):
          cur = source_list.pop()
          ordered[cur] = idx
          idx += 1
-         print('s', idx, cur)
+         #print('s', idx, cur)
          cur_out = g.get_out_edges(cur, [g.ep.weight])
          remove_out_edges(cur_out, sinks, sources, ordered,
                           in_w, diff, source_list, bins, links)
@@ -245,7 +280,7 @@ def main(argc, argv):
       cur = dll_rm_first(cur_bin, bins, links)
       ordered[cur] = idx
       idx += 1
-      print('b', idx, cur)
+      #print('b', idx, cur)
 
       cur_out = g.get_out_edges(cur, [g.ep.weight])
       remove_out_edges(cur_out, sinks, sources, ordered,
@@ -254,7 +289,7 @@ def main(argc, argv):
       remove_in_edges(cur_in, sinks, sources, ordered,
                       out_w, diff, bins, links)
 
-   output_in_dot(g, ordered, result_filename)
+   output_in_dot(g, ordered, result_filename, all_true_pairs)
 
 
 if __name__ == "__main__":
