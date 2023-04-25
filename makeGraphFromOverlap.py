@@ -18,7 +18,7 @@ def main(argc, argv):
       example = "sim-e-coli-pb-le20k-nosub"
       print("Usage: makeGraphFromOverlap.py <sample-basename> <overlap-basename> [overlap-extension]")
       print(f'Example: makeGraphFromOverlap.py {example} {example}-n60-k42-t0/unionPos 10')
-      print(f'Will use files {dir}/{example}.{{{header_ext},{true_ext},{irr_ext}}} and {dir}/{example}-n60-k42-t0/unionPos.\{{found_ext}10')
+      print(f'Will use files {dir}/{example}.{{{header_ext},{true_ext},{irr_ext}}} and {dir}/{example}-n60-k42-t0/unionPos.{found_ext}10')
       exit(1)
 
 
