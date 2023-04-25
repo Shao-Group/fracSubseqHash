@@ -1,5 +1,24 @@
 #!/usr/bin/env python3
 
+'''
+Given the ground truth and overlap files, construct a graph-tool directed
+graph where the vertices are reads. Two reads are connected by a weighted
+edge if they share some seeds where the weight is the number of shared seeds.
+The direction of the edge i->j means tail of read i overlap with head of read j.
+
+Additional edges may be added according to the ground truth with weight 0.
+To ignore such edges, apply an edge filter with edge property 'type' (see below).
+
+Vertices have a property map 'id' for their corresponding read id.
+
+Edges have two property maps, 'weight' and 'type', where type=0 means this
+edge is a false positive overlapping pair; type=1 means the two reads indeed
+overlap; type=2 means the overlapping pair (i,j) is irreducible (i.e., there
+is no read k such that tail of i overlap with head of k, and tail of k overlap
+with head of j).
+'''
+
+
 import sys
 import os.path
 import itertools

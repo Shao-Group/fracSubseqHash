@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
 
+'''
+Given a graph built by makeGraphFromOverlap.py, apply the minimum
+feedback arc heuristic algorithm by Eades et al to get a linear
+order of all the vertices (reads) and output the graph (into dot)
+in this order where only edges between adjacent reads are
+considered.
+'''
+
+
 import sys
 import os.path
 import itertools
@@ -79,7 +88,7 @@ def remove_in_edges(in_edges, sinks, sources, ordered,
             diff[st] -= w
          dll_add_first(diff[st], bins, links, st) #add to new bin
 
-         
+# here g is the unfiltered graph so we can recognize ground truth pairs
 def output_in_dot(g, ordered, out_filename):
    names = g.vp.id.a
    height = 0
@@ -94,7 +103,7 @@ def output_in_dot(g, ordered, out_filename):
       for i in range(1, g.num_vertices()):
          if ordered[i] - ordered[i-1] == 1:
             e = g.edge(i-1, i)
-            if e is None:
+            if (e is None) or (g.ep.weight[e] == 0):
                fout.write(f'r{names[i-1]} -> r{names[i]} [label=\"discovered\"];\n')
             else:
                fout.write(f'r{names[i-1]} -> r{names[i]} [label=\"{g.ep.weight[e]}\"];\n')
@@ -107,7 +116,7 @@ def output_in_dot(g, ordered, out_filename):
             continue
 
          e = g.edge(s,t)
-         w = "discovered" if e is None else g.ep.weight[e]
+         w = "discovered" if (e is None) or (g.ep.weight[e] == 0) else g.ep.weight[e]
          y = ((s+t)*height_diff)>>1
          if e is not None and g.ep.type[e] > 0:
             x =  140 + (t-s)*height_diff
@@ -236,7 +245,7 @@ def main(argc, argv):
       remove_in_edges(cur_in, sinks, sources, ordered,
                       out_w, diff, bins, links)
 
-   output_in_dot(g, ordered, result_filename)
+   output_in_dot(fg, ordered, result_filename)
 
 
 if __name__ == "__main__":
