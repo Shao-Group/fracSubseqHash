@@ -9,13 +9,13 @@ The direction of the edge i->j means tail of read i overlap with head of read j.
 Additional edges may be added according to the ground truth with weight 0.
 To ignore such edges, apply an edge filter with edge property 'type' (see below).
 
-Vertices have a property map 'id' for their corresponding read id.
+Vertices have an int property map 'id' for their corresponding read id.
 
-Edges have two property maps, 'weight' and 'type', where type=0 means this
-edge is a false positive overlapping pair; type=1 means the two reads indeed
-overlap; type=2 means the overlapping pair (i,j) is irreducible (i.e., there
-is no read k such that tail of i overlap with head of k, and tail of k overlap
-with head of j).
+Edges have two property maps, {'weight', int} and {'type', 'int8_t'},
+where type=0 means this edge is a false positive overlapping pair;
+type=1 means the two reads indeed overlap; type=2 means the overlapping pair
+(i,j) is irreducible (i.e., there is no read k such that tail of i overlap
+with head of k, and tail of k overlap with head of j).
 '''
 
 
