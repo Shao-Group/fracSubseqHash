@@ -180,9 +180,24 @@ def main(argc, argv):
       while next[chain[-1]] >= 0:
          chain.append(next[chain[-1]])
                   
-                  
       remain = np.flatnonzero(~used)
       print(f'after extracting the chain, {len(remain)} nodes left')
+
+      cr = 0
+      for i in range(1, len(chain)):
+         s = chain[i-1]
+         t = chain[i]
+         if s < t:
+            cr += 1
+      print(f'{len(chain)-1} edges in the chain, {cr} agrees with ground truth')
+
+      cr = 0
+      chain_cp = np.array(chain)
+      for i in range(len(chain)):
+         cr += np.count_nonzero(chain_cp[i:]>chain[i])
+      expected_cr = (len(chain) * (len(chain) - 1)) >>1
+      print(f'{cr} among {expected_cr} pairs agree with ground truth')
+      
       #attach the remaining vertices to the chain by a
       #(possibly degenerated) path x->r->y where x and y are nodes on the chain
                   
