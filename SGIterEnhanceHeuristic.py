@@ -146,57 +146,60 @@ def main(argc, argv):
       B = nTC(A, potent).toarray()
       np.fill_diagonal(B, 0)
       used = np.zeros(B.shape[0], dtype=bool)
-   
-      head, tail = np.unravel_index(np.argmax(B), B.shape)
-      used[[head, tail]] = True
-      mid, mid_w = findBestMid(B, head, tail, used)
 
-      #extract a chain from B represented as a set of intervals a->b
-      #minheap, so use the negation of weight
-      intervals = [(-mid_w, head, tail, mid)]
+      while True:
+         head, tail = np.unravel_index(np.argmax(B), B.shape)
+         used[[head, tail]] = True
+         mid, mid_w = findBestMid(B, head, tail, used)
+
+         #extract a chain from B represented as a set of intervals a->b
+         #minheap, so use the negation of weight
+         intervals = [(-mid_w, head, tail, mid)]
       
-      while intervals[0][0] < 0:
-         w, st, ed, m = heapq.heappop(intervals)
-         if not used[m]:
-            used[m] = True
-            #handle new interval st->m
-            mid, mid_w = findBestMid(B, st, m, used)
-            heapq.heappush(intervals, (-mid_w, st, m, mid))
-            #handle new interval m->ed
-            mid, mid_w = findBestMid(B, m, ed, used)
-            heapq.heappush(intervals, (-mid_w, m, ed, mid))
-         else: #m has been used in some previous iteration
-            mid, mid_w = findBestMid(B, st, ed, used)
-            heapq.heappush(intervals, (-mid_w, st, ed, mid))
+         while intervals[0][0] < 0:
+            w, st, ed, m = heapq.heappop(intervals)
+            if not used[m]:
+               used[m] = True
+               #handle new interval st->m
+               mid, mid_w = findBestMid(B, st, m, used)
+               heapq.heappush(intervals, (-mid_w, st, m, mid))
+               #handle new interval m->ed
+               mid, mid_w = findBestMid(B, m, ed, used)
+               heapq.heappush(intervals, (-mid_w, m, ed, mid))
+            else: #m has been used in some previous iteration
+               mid, mid_w = findBestMid(B, st, ed, used)
+               heapq.heappush(intervals, (-mid_w, st, ed, mid))
             
             
-      #assemble the chain
-      next = np.full(B.shape[0], -1)
-      for x, st, ed, y in intervals:
-         next[st] = ed
-         dag.add_edge(st, ed)
+         #assemble the chain
+         next = np.full(B.shape[0], -1)
+         for x, st, ed, y in intervals:
+            next[st] = ed
+            dag.add_edge(st, ed)
 
-      chain = [head]
-      while next[chain[-1]] >= 0:
-         chain.append(next[chain[-1]])
+         chain = [head]
+         while next[chain[-1]] >= 0:
+            chain.append(next[chain[-1]])
                   
-      remain = np.flatnonzero(~used)
-      print(f'after extracting the chain, {len(remain)} nodes left')
+         remain = np.flatnonzero(~used)
+         print(f'after extracting the chain, {len(remain)} nodes left')
 
-      cr = 0
-      for i in range(1, len(chain)):
-         s = chain[i-1]
-         t = chain[i]
-         if s < t:
-            cr += 1
-      print(f'{len(chain)-1} edges in the chain, {cr} agrees with ground truth')
+         cr = 0
+         for i in range(1, len(chain)):
+            s = chain[i-1]
+            t = chain[i]
+            if s < t:
+               cr += 1
+         print(f'{len(chain)-1} edges in the chain, {cr} agrees with ground truth')
 
-      cr = 0
-      chain_cp = np.array(chain)
-      for i in range(len(chain)):
-         cr += np.count_nonzero(chain_cp[i:]>chain[i])
-      expected_cr = (len(chain) * (len(chain) - 1)) >>1
-      print(f'{cr} among {expected_cr} pairs agree with ground truth')
+         cr = 0
+         chain_cp = np.array(chain)
+         for i in range(len(chain)):
+            cr += np.count_nonzero(chain_cp[i:]>chain[i])
+         expected_cr = (len(chain) * (len(chain) - 1)) >>1
+         print(f'{cr} among {expected_cr} pairs agree with ground truth')
+
+      #end of extracting chains   
       
       #attach the remaining vertices to the chain by a
       #(possibly degenerated) path x->r->y where x and y are nodes on the chain
