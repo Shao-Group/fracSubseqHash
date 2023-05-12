@@ -41,16 +41,39 @@ def nTC(M, n):
          n -= 1
       return R
 
-#given 2darray square matrix B, and indices st and ed, find an unused index m
-#such that B[st,m]>0, B[m,ed]>0, and B[st,m]+B[m,ed] is maximized
-#return (m, B[st,m]+B[m,ed]) if found, otherwise (-1, 0)
-def findBestMid(B, st, ed, used):
+'''
+Given 2darray square matrix B, the current chain, and indices st and ed,
+find an unused index m such that B[st,m]>0, B[m,ed]>0, and 
+w = (B[st,m]+B[m,ed]+support-objection) is maximized, where support
+is the sum of B[i, m] for all i in chain before st and B[m, j] for all j
+in chain after ed; objection is the sum of B[m, i] for all i in chain before st
+and B[j, m] for all j in chain after ed.
+Return (m, B[st,m]+B[m,ed]) if found, otherwise (-1, 0)
+'''
+def findBestMid(B, st, ed, used, chain):
+   st_idx = chain.index(st)
+   ed_idx = chain.index(ed)
+
+   before = chain[:st_idx]
+   #before_mask = np.full(B.shape[0], False)
+   #before_mask[chain[:st_idx]] = True
+
+   after = chain[ed_idx+1:]
+   #after_mask = np.full(B.shape[0], False)
+   #after_mask[chain[ed_idx+1:]] = True
+
+   support = B[before,:].sum(axis=0)
+   support += B[:,after].sum(axis=1)
+
+   objection = B[:,before].sum(axis=1)
+   objection += B[after,:].sum(axis=0)
+   
    vst = np.ma.masked_array(B[st,:], mask=(used|(B[st,:]==0)))
    ved = np.ma.masked_array(B[:,ed], mask=(used|(B[:,ed]==0)))
-   mids = vst+ved
+   mids = vst + ved + support.data - objection.data
    best = mids.argmax() if mids.count() > 0 else -1
    best_w = mids[best] if best >= 0 else 0
-   return (best, best_w)
+   return (best, best_w, vst[best], ved[best], support.data[best], objection.data[best])
 
 #g here is the unfiltered graph so we can recognize ground truth pairs
 def output_in_dot(g, out_filename, simple=False):
@@ -165,45 +188,40 @@ def main(argc, argv):
          if head == 0 and tail == 0:
             break
          used[[head, tail]] = True
-         mid, mid_w = findBestMid(B, head, tail, used)
 
          '''
          Extract a chain from B.
-         Each minimal interval a->b in the chain maintains the best vertex c
-         that can be inserted in between to split the interval into two
-         a->c and c->b.
-         All the intervals are stored in a minheap with (the negation of)
-         the weight of such a split as key so it is easy to identify the best
-         interval to split.
+         For each minimal interval a->b in the chain, calculate 
+         the best vertex c that can be inserted in between to split 
+         the interval into two a->c and c->b.
          '''
          chain = [head, tail]
-         #minheap, so use the negation of weight, each entry is
-         intervals = [(-mid_w, head, tail, mid)]
+         mid, mid_w, st_w, ed_w, sup_w, obj_w = findBestMid(B, head, tail, used, chain)
+         best_interval = (mid_w, head, tail, mid, st_w, ed_w, sup_w, obj_w)
 
          #stop when no more split is possible or when the chain has potent number of edges
-         while intervals[0][0] < 0 and len(chain) < potent + 1:
-            w, st, ed, m = heapq.heappop(intervals)
-            if not used[m]:
-               ed_idx = chain.index(ed)
-               chain.insert(ed_idx, m)
-               used[m] = True
-               #handle new interval st->m
-               mid, mid_w = findBestMid(B, st, m, used)
-               heapq.heappush(intervals, (-mid_w, st, m, mid))
-               #handle new interval m->ed
-               mid, mid_w = findBestMid(B, m, ed, used)
-               heapq.heappush(intervals, (-mid_w, m, ed, mid))
-            else: #m has been used in some previous iteration
-               mid, mid_w = findBestMid(B, st, ed, used)
-               heapq.heappush(intervals, (-mid_w, st, ed, mid))
-            
+         while best_interval[0] > 0 and len(chain) < potent + 1:
+            mid_w, st, ed, mid, st_w, ed_w, sup_w, obj_w = best_interval
+            printChain(dag, chain)
+            print(f'insert {mid} between {st} and {ed}, {st}->{mid}:{st_w}, {mid}->{ed}:{ed_w}, support:{sup_w}, objection:{obj_w}')
+            ed_idx = chain.index(ed)
+            chain.insert(ed_idx, mid)
+            used[mid] = True
+            #find split for all minimal intervals and keep the best
+            best_interval = (0, 0, 0, -1)
+            for i in range(len(chain)-1):
+               st = chain[i]
+               ed = chain[i+1]
+               mid, mid_w, st_w, ed_w, sup_w, obj_w = findBestMid(B, st, ed, used, chain)
+               if mid_w > best_interval[0]:
+                  best_interval = (mid_w, st, ed, mid, st_w, ed_w, sup_w, obj_w)
             
          #add the edges in chain to dag
-         for x, st, ed, y in intervals:
-            dag.add_edge(st, ed)
+         for i in range(len(chain)-1):
+            dag.add_edge(chain[i], chain[i+1])
                   
          remain = np.flatnonzero(~used)
-         print(f'\nafter extracting the chain, {len(remain)} nodes left')
+         print(f'after extracting the chain, {len(remain)} nodes left')
 
          cr = 0
          for i in range(1, len(chain)):
@@ -213,6 +231,7 @@ def main(argc, argv):
                cr += 1
          print(f'{len(chain)-1} edges in the chain, {cr} agrees with ground truth')
          printChain(dag, chain)
+         print('\n')
          #print(chain)
 
          '''
