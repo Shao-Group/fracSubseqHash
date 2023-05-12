@@ -126,7 +126,7 @@ def main(argc, argv):
       print(e.strerror)
       exit(1)
 
-   g.save(output_filename)
+   g.save(output_filename, fmt='graphml')
 
 # end of main
 

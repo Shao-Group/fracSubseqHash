@@ -68,8 +68,8 @@ def findBestMid(B, st, ed, used, chain):
    objection = B[:,before].sum(axis=1)
    objection += B[after,:].sum(axis=0)
    
-   vst = np.ma.masked_array(B[st,:], mask=(used|(B[st,:]==0)))
-   ved = np.ma.masked_array(B[:,ed], mask=(used|(B[:,ed]==0)))
+   vst = np.ma.masked_array(B[st,:], mask=(used|(B[st,:]==0)|(objection>0)))
+   ved = np.ma.masked_array(B[:,ed], mask=(used|(B[:,ed]==0)|(objection>0)))
    mids = vst + ved + support.data - objection.data
    best = mids.argmax() if mids.count() > 0 else -1
    best_w = mids[best] if best >= 0 else 0
@@ -89,14 +89,15 @@ def output_in_dot(g, out_filename, simple=False):
       fout.write('edge [penwidth=2.0, color="black"];\n')
       if simple:
          for st, ed in g.get_edges():
+            color = 'cyan' if st < ed else 'red'
             if abs(st-ed) == 1: #adjacent in the plotted order
-               fout.write(f'r{names[st]} -> r{names[ed]};\n')
+               fout.write(f'r{names[st]} -> r{names[ed]}[color=\"{color}\"];\n')
             else:
-               x = 140 + (ed - st) * height_diff
+               x = 140 + (ed - st) * height_diff/10
                y = ((st+ed)*height_diff)>>1
-               fout.write(f'r{names[st]}midr{names[ed]} [pos=\"{x},{y}\", shape=none];\n')
-               fout.write(f'r{names[st]} -> r{names[st]}midr{names[ed]}:c [dir=none];\n')
-               fout.write(f'r{names[st]}midr{names[ed]}:c -> r{names[ed]};\n')
+               fout.write(f'r{names[st]}midr{names[ed]} [pos=\"{x},{y}\", shape=none, label=\"\"];\n')
+               fout.write(f'r{names[st]} -> r{names[st]}midr{names[ed]}:c [dir=none, color=\"{color}\"];\n')
+               fout.write(f'r{names[st]}midr{names[ed]}:c -> r{names[ed]}[color=\"{color}\"];\n')
 
       else: #none simple, the input graph is already filtered with g.ep.keep, output color and weight
          for e in g.edges():
@@ -149,10 +150,12 @@ def main(argc, argv):
    potent = int(argv[2])
 
    fg = Graph()
-   fg.load(input_name)
+   fg.load(input_name, fmt='graphml')
 
-   g = GraphView(fg, efilt=fg.ep.weight.a>0)
+   g = fg.copy()
+   g = GraphView(g, efilt=g.ep.weight.a>0)
    g.ep.keep = g.new_edge_property("bool")
+   g.ep.keep.a = True
 
    re = g.num_edges()
    filter = g.ep.weight.a>0
@@ -162,8 +165,8 @@ def main(argc, argv):
    print(f'start with {re} edges, irreducible: {ir}, transitive: {tr}, wrong: {wr}')
 
    iteration = 0
-   while iteration < 1:
-      g.ep.keep.a = False
+   while iteration < 5:
+      #g.ep.keep.a = False
       iteration += 1
       print(f'iteration {iteration}')
       #resulting graph
@@ -179,6 +182,8 @@ def main(argc, argv):
       used = np.zeros(AP.shape[0], dtype=bool)
       B = AP
 
+      #extract chains
+      num_chains = 0
       while True:
          old_used = used.copy()
          used_mask = [used]*len(AP) | used[:,np.newaxis] #mask rows and colums of used indices
@@ -196,6 +201,7 @@ def main(argc, argv):
          the interval into two a->c and c->b.
          '''
          chain = [head, tail]
+         num_chains += 1
          mid, mid_w, st_w, ed_w, sup_w, obj_w = findBestMid(B, head, tail, used, chain)
          best_interval = (mid_w, head, tail, mid, st_w, ed_w, sup_w, obj_w)
 
@@ -227,7 +233,8 @@ def main(argc, argv):
          for i in range(1, len(chain)):
             s = chain[i-1]
             t = chain[i]
-            if s < t:
+            e = fg.edge(s,t)
+            if e is not None and fg.ep.type[e]:
                cr += 1
          print(f'{len(chain)-1} edges in the chain, {cr} agrees with ground truth')
          printChain(dag, chain)
@@ -242,8 +249,20 @@ def main(argc, argv):
          expected_cr = (len(chain) * (len(chain) - 1)) >>1
          print(f'{cr} among {expected_cr} pairs agree with ground truth')
          '''
-      #end of extracting chains   
-      
+      #end of extracting chains
+
+      tr = 0
+      wr = 0
+      for e in dag.edges():
+         test_e = fg.edge(e.source(), e.target())
+         if test_e is None or fg.ep.type[test_e] == 0:
+            wr += 1
+         else:
+            tr += 1
+
+      print(f'{num_chains} chains, {tr} correct edges, {wr} incorrect edges')
+
+      '''
       #attach the remaining vertices to the chain by a
       #(possibly degenerated) path x->r->y where x and y are nodes on the chain
                   
@@ -298,37 +317,54 @@ def main(argc, argv):
 
       remain = np.flatnonzero(~used)
       print(f'after edge attaching, {len(remain)} nodes left')
+      '''
 
-      #TODO: output dag as dot
+      #output dag as dot
       head, sep, tail = argv[1].rpartition('.')
-      output_filename = (head if sep else tail) + f'.IEH-p{potent}-mid{iteration}.dot'
+      output_filename = (head if sep else tail) + f'.IEH-p{potent}-mid{iteration}.dag.dot'
       output_in_dot(dag, output_filename, simple=True)
 
-      dag = transitive_closure(dag)
+      #dag = transitive_closure(dag)
+      #remove edges inconsistent with the dag
       for e in g.edges():
-         if dag.edge(e.target(), e.source()) is None:
-            g.ep.keep[e] = True
+         if dag.edge(e.source(), e.target()) is None:
+            g.ep.keep[e] = False
 
       mg = GraphView(g, efilt=g.ep.keep)
-      mg.purge_edges()
-      re = mg.num_edges()
+      output_filename = (head if sep else tail) + f'.IEH-p{potent}-mid{iteration}.graph.dot'
+      output_in_dot(mg, output_filename)
+
+      wr_no_dr = np.count_nonzero((g.ep.keep.a) & (g.ep.type.a==0))
+      #add derived edges from the dag
+      for e in dag.edges():
+         if g.edge(e.source(), e.target()) is None:
+            new_e = g.add_edge(e.source(), e.target())
+            g.ep.weight[new_e] = 1
+            
+            test_e = fg.edge(e.source(), e.target())
+            g.ep.type[new_e] = fg.ep.type[test_e] if test_e is not None else 0
+            g.ep.keep[new_e] = True
+            
+      g = GraphView(g, efilt=g.ep.keep)
+      g.purge_edges()
+      re = g.num_edges()
       ir = 0
       tr = 0
       wr = 0
-      for e in mg.edges():
-         etype = mg.ep.type[e]
+      for e in g.edges():
+         etype = g.ep.type[e]
          if etype == 0:
             wr += 1
          elif etype == 1:
             tr += 1
          else:
             ir += 1
-      print(f'remaining edges: {re}, irreducible: {ir}, transitive: {tr}, wrong: {wr}\n')
+      print(f'remaining edges: {re}, irreducible: {ir}, transitive: {tr}, wrong original: {wr_no_dr}, wrong derived: {wr-wr_no_dr}\n')
 
    #TODO: output keep edges of g as dot
    head, sep, tail = argv[1].rpartition('.')
    result_filename = (head if sep else tail) + f'.IEH-p{potent}.dot'
-   output_in_dot(mg, result_filename)
+   output_in_dot(g, result_filename)
 
 if __name__ == "__main__":
    sys.exit(main(len(sys.argv), sys.argv))
