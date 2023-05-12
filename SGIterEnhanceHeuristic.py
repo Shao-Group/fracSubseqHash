@@ -18,6 +18,14 @@ from sortedcontainers import SortedList
 import scipy
 import heapq
 
+# given a graph with vp id, and a list of indices of vertices (forming a chain),
+# print the list where each item is in the form of index(id)
+def printChain(g, chain):
+   print('[', end='')
+   for v in chain:
+      print(f'{v}({g.vp.id[v]}), ', end='')
+   print(']')
+
 # M is a 2d scipy.sparse.csr_matrix of dtype=int, n is an integer
 # return M+M^2+...+M^n
 def nTC(M, n):
@@ -131,7 +139,7 @@ def main(argc, argv):
    print(f'start with {re} edges, irreducible: {ir}, transitive: {tr}, wrong: {wr}')
 
    iteration = 0
-   while iteration < 5:
+   while iteration < 1:
       g.ep.keep.a = False
       iteration += 1
       print(f'iteration {iteration}')
@@ -143,22 +151,41 @@ def main(argc, argv):
 
       A = scipy.sparse.csr_matrix(adjacency(g, weight=g.ep.weight).transpose(), dtype=int)
    
-      B = nTC(A, potent).toarray()
-      np.fill_diagonal(B, 0)
-      used = np.zeros(B.shape[0], dtype=bool)
+      AP = nTC(A, potent).toarray()
+      np.fill_diagonal(AP, 0)
+      used = np.zeros(AP.shape[0], dtype=bool)
+      B = AP
 
       while True:
+         old_used = used.copy()
+         used_mask = [used]*len(AP) | used[:,np.newaxis] #mask rows and colums of used indices
+         B = np.ma.masked_array(AP, used_mask)
+         
          head, tail = np.unravel_index(np.argmax(B), B.shape)
+         if head == 0 and tail == 0:
+            break
          used[[head, tail]] = True
          mid, mid_w = findBestMid(B, head, tail, used)
 
-         #extract a chain from B represented as a set of intervals a->b
-         #minheap, so use the negation of weight
+         '''
+         Extract a chain from B.
+         Each minimal interval a->b in the chain maintains the best vertex c
+         that can be inserted in between to split the interval into two
+         a->c and c->b.
+         All the intervals are stored in a minheap with (the negation of)
+         the weight of such a split as key so it is easy to identify the best
+         interval to split.
+         '''
+         chain = [head, tail]
+         #minheap, so use the negation of weight, each entry is
          intervals = [(-mid_w, head, tail, mid)]
-      
-         while intervals[0][0] < 0:
+
+         #stop when no more split is possible or when the chain has potent number of edges
+         while intervals[0][0] < 0 and len(chain) < potent + 1:
             w, st, ed, m = heapq.heappop(intervals)
             if not used[m]:
+               ed_idx = chain.index(ed)
+               chain.insert(ed_idx, m)
                used[m] = True
                #handle new interval st->m
                mid, mid_w = findBestMid(B, st, m, used)
@@ -171,18 +198,12 @@ def main(argc, argv):
                heapq.heappush(intervals, (-mid_w, st, ed, mid))
             
             
-         #assemble the chain
-         next = np.full(B.shape[0], -1)
+         #add the edges in chain to dag
          for x, st, ed, y in intervals:
-            next[st] = ed
             dag.add_edge(st, ed)
-
-         chain = [head]
-         while next[chain[-1]] >= 0:
-            chain.append(next[chain[-1]])
                   
          remain = np.flatnonzero(~used)
-         print(f'after extracting the chain, {len(remain)} nodes left')
+         print(f'\nafter extracting the chain, {len(remain)} nodes left')
 
          cr = 0
          for i in range(1, len(chain)):
@@ -191,14 +212,17 @@ def main(argc, argv):
             if s < t:
                cr += 1
          print(f'{len(chain)-1} edges in the chain, {cr} agrees with ground truth')
+         printChain(dag, chain)
+         #print(chain)
 
+         '''
          cr = 0
          chain_cp = np.array(chain)
          for i in range(len(chain)):
             cr += np.count_nonzero(chain_cp[i:]>chain[i])
          expected_cr = (len(chain) * (len(chain) - 1)) >>1
          print(f'{cr} among {expected_cr} pairs agree with ground truth')
-
+         '''
       #end of extracting chains   
       
       #attach the remaining vertices to the chain by a
@@ -258,7 +282,7 @@ def main(argc, argv):
 
       #TODO: output dag as dot
       head, sep, tail = argv[1].rpartition('.')
-      output_filename = (head if sep else tail) + f'.IEH-mid{iteration}.dot'
+      output_filename = (head if sep else tail) + f'.IEH-p{potent}-mid{iteration}.dot'
       output_in_dot(dag, output_filename, simple=True)
 
       dag = transitive_closure(dag)
@@ -284,7 +308,7 @@ def main(argc, argv):
 
    #TODO: output keep edges of g as dot
    head, sep, tail = argv[1].rpartition('.')
-   result_filename = (head if sep else tail) + '.IEH.dot'
+   result_filename = (head if sep else tail) + f'.IEH-p{potent}.dot'
    output_in_dot(mg, result_filename)
 
 if __name__ == "__main__":
